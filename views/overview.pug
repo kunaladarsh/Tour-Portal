@@ -1,0 +1,42 @@
+extends base
+
+block content
+    main.main
+        .card-container
+            each tourItem in tour.data
+                .card
+                    .card__header
+                        .card__picture
+                            .card__picture-overlay &nbsp;
+                            img.card__picture-img(src="img/tours/tour-1-cover.jpg" alt="Tour 1")
+                        h3.heading-tertirary
+                            span=tourItem.name
+                    .card__details
+                        h4.card__sub-heading #{tourItem.difficulty}-day tour
+                        p.card__text #{tourItem.summary} 
+                        .card__data
+                            svg.card__icon
+                                use(xlink:href="img/icons.svg#icon-map-pin")
+                            span Banff, Canada #{tourItem.startLocation.coordinates}
+                        .card__data
+                            svg.card__icon
+                                use(xlink:href="img/icons.svg#icon-calendar")
+                            span #{tourItem.createdAt}
+                        .card__data
+                            svg.card__icon
+                                use(xlink:href="img/icons.svg#icon-flag")
+                            span=tourItem.startDates.length + ' stops'
+                        .card__data
+                            svg.card__icon
+                                use(xlink:href="img/icons.svg#icon-user")
+                            span #{tourItem.maxGroupSize} people
+                    .card__footer
+                        p
+                            span.card__footer-value #{tourItem.price}
+                            span.card__footer-text  per person
+                        p.card__ratings
+                            span.card__footer-value  #{tourItem.rating}
+                            span.card__footer-text  rating (21)
+                        a.btn.btn--green.btn--small(href="#") Details
+
+
