@@ -92,5 +92,4 @@ app.use('/api/v1/reviews', reviewRouter);
 //render data of frontend
 app.use('/', viewRouter);
 
-
 module.exports = app;

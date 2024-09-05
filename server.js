@@ -17,7 +17,6 @@ mongoose.connect(uri)
   .then(() => console.log('You successfully connected to MongoDB!'))
   .catch(err => console.error('Error connecting to MongoDB:', err), 10);
 
-
 // server connections
 app.listen(port, () => {
   console.log(`App running on port ${port}...`);
