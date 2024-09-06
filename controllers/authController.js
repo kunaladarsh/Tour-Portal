@@ -79,6 +79,29 @@ exports.login = async (req, res, next) => {
     }
 };
 
+exports.logOut = async (req, res, next) => {
+    try {
+        // send token to client at token-validation-time is 4 sec
+        const cookies = {
+            expires: new Date(
+                Date.now() + 5000
+            ),
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production', // Automatically set secure based on environment
+        };
+    
+        res.cookie('jwt', 'logout', cookies);
+        res.status(200).json({
+            status: 'Success',
+            message: 'your are successfully logout'
+        });
+
+    } catch (err) {
+        console.log(err);
+        return sendErrorMessage(res, 404, "Logout Unsuccessfully");
+    }
+};
+
 exports.protect = async (req, res, next) => {
     console.log("check protect middleware");
     let token;
@@ -260,10 +283,11 @@ exports.updatePassword = async (req, res, next) => {
         //User.findByIdAndUpdate will not work as intended!
 
         // login user in, send JWT
-        createSendToken(res, user, 200, 'password sucessfully changed');
+        createSendToken(res, user, 200, 'Password updated successfully');
 
     } catch (err) {
         console.log(err);
         return sendErrorMessage(res, 404, "get something wrong");
     }
 };
+

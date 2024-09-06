@@ -5,8 +5,8 @@ exports.getOverview = async(req, res) => {
     const data = await Tour.find();    
 
     res.status(200).render('overview', {
+        title: "Exciting tours for adventurous people",
         tour: {
-            title: "Exciting tours for adventurous people",
             data: data
         }
     });
@@ -17,3 +17,10 @@ exports.login = async(req, res) => {
         "message": "Login Screen Open"
     });
 };
+
+exports.getAccount = (req, res) => {
+    res.status(200).render('account', {
+      title: 'About'
+    });
+};
+

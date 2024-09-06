@@ -1,30 +1,48 @@
 const User = require('./../models/userModel');
 
+// getting err or something wrong
+const sendErrorMessage = (res, statuscode, message) => {
+  res.status(statuscode).json({
+      status: 'Fail',
+      message: message,
+  });
+};
 
 exports.UpdateMe = async (req, res, next) => {
- console.log("welecome to updated me")
   try {
-    // create error if user want to updated password
-    if (req.body.password || req.body.passwordConfirm) {
-      return res.status(401).json({
-        status: 'error',
-        message: 'not permission to update password!'
-      });
-    };
+    if (req.body.newPassword || req.body.newPasswordConfirm) {
+      return sendErrorMessage(
+          res, 400, 'This route is not for password updates. Please use /update.Password.'
+        )
+      };
 
     // user updated documents
     //build later(me)
     // filter the body req that confirm that user can't update like password, role and sentative info
-        
-    await User.updateOne({ email: req.user.email }, { $set: req.body });
+    
+   // if user Updating-email are same as current email address.
+   if(req.user.email === req.body.email){
+     return sendErrorMessage(res, 404, "Email Already in Use");
+   }
+   
+   // if Updating-email are alredy registered
+   const alreadyRegistered = await User.findOne({email: req.body.email});
+   if(alreadyRegistered){
+    return sendErrorMessage(res, 404, "Email address is already registered. Please enter a different email address");
+   }
+
+    // update user Name and email
+    const user = req.user
+    user.name = req.body.name;
+    user.email = req.body.email;
+    await user.save();
 
     res.status(200).json({
-      status: 'success',
-      message: 'Updated successfull!'
+      status: 'Success',
+      message: 'Updated successfully!',
     });
 
   } catch (err) {
-    console.log(err)
     res.status(404).json({
       status: 'error',
       message: 'Updated Failed!'
