@@ -5,33 +5,52 @@ const { promisify } = require('util');
 const { sendEmail } = require('./../utils/emails');
 const crypto = require('crypto');
 
-// create JWT Token
+// create access JWT Token
 const signToken = id => {
-    return jwt.sign({ id: id }, process.env.jwt_SECRET, { expiresIn: '1h' });
+    return jwt.sign({ id: id }, process.env.jwt_SECRET, { expiresIn: '15m' });
+}
+// create refresh JWT Token
+const refreshToken = id => {
+    return jwt.sign({ id: id }, process.env.jwt_REFRESH_SECRET, { expiresIn: '7d' });
 }
 
 // sending JWT Token to user
 const createSendToken = (res, user, statuscode, message) => {
     const token = signToken(user.email);
+    const refToken = refreshToken(user.email);
+    // JWT Access-Token
     const cookies = {
         expires: new Date(
-            Date.now() + parseInt(process.env.jwt_COOKIE_EXPIRES) * 24 * 60 * 60 * 1000
+            Date.now() + parseInt(process.env.jwt_COOKIE_EXPIRES) * 60 * 1000
+        ),
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production', // Automatically set secure based on environment
+    };
+
+    // JWT Refresh-Token
+    const cookies_refresh = {
+        expires: new Date(
+            Date.now() + parseInt(process.env.jwt_REFRESH_COOKIE_EXPIRES) * 24 * 60 * 60 * 1000
         ),
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // Automatically set secure based on environment
     };
 
     res.cookie('jwt', token, cookies);
+    res.cookie('refreshJwt', refToken, cookies_refresh);
 
     // Remove password from output
     user.password = undefined;
 
-    res.status(statuscode).json({
-        token,
-        status: 'Success',
-        message: message,
-        data: user
-    });
+    // send data when login the user
+    if(message === "you are login successfully") {
+        res.status(statuscode).json({
+            token, refToken,
+            status: 'Success',
+            message: message,
+            data: user
+        });
+    }
 };
 
 // getting err or something wrong
@@ -89,8 +108,10 @@ exports.logOut = async (req, res, next) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production', // Automatically set secure based on environment
         };
-    
+
         res.cookie('jwt', 'logout', cookies);
+        res.cookie('refreshJwt', 'logout', cookies);
+
         res.status(200).json({
             status: 'Success',
             message: 'your are successfully logout'
@@ -104,23 +125,31 @@ exports.logOut = async (req, res, next) => {
 
 exports.protect = async (req, res, next) => {
     console.log("check protect middleware");
-    let token;
+    let token, refToken;
     try {
         // 1) getting token and check of it's there
         if (req.headers.authorization && req.headers.authorization.includes('Bearer')) {
             token = req.headers.authorization.split(' ')[1];
         } else if (req.cookies.jwt) {
             token = req.cookies.jwt;
+        } else if (req.cookies.refreshJwt) {
+            refToken = req.cookies.refreshJwt;
         }
 
-        if (!token) {
+        if (!token & !refToken) {
             return sendErrorMessage(res, 400, "you are not login please login to access..");
         }
 
         // 2) verification token
         // verify a token symmetric
-
-        const decoded = await promisify(jwt.verify)(token, process.env.jwt_SECRET);
+        let decoded;
+        if (token) {
+             //verification the refresh token (when token are present)
+            decoded = await promisify(jwt.verify)(token, process.env.jwt_SECRET);
+        } else {
+            //verification the refresh token 
+            decoded = await promisify(jwt.verify)(refToken, process.env.jwt_REFRESH_SECRET);
+        }
 
         // 3) check if user still exits
         const currentUser = await User.findOne({ email: decoded.id });
@@ -133,10 +162,16 @@ exports.protect = async (req, res, next) => {
             return sendErrorMessage(res, 401, "user recently changed password! please login again");
         }
 
+        // send the access-token and new refresh-token
+        if(refToken){
+            createSendToken(res, currentUser, 200, 'send access token');
+        }
+
         // grant access to protected routes
         req.user = currentUser;
 
     } catch (err) {
+        console.log(err);
         return sendErrorMessage(res, 401, "invalid token");
     }
 
@@ -146,7 +181,7 @@ exports.protect = async (req, res, next) => {
 exports.isLoggedIn = async (req, res, next) => {
     let decoded;
     try {
-        if(req.cookies.jwt) {
+        if (req.cookies.jwt) {
             // 1) verification token
             decoded = await promisify(jwt.verify)(req.cookies.jwt, process.env.jwt_SECRET);
         };

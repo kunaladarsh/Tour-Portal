@@ -19,7 +19,9 @@ exports.login = async(req, res) => {
 };
 
 exports.getAccount = (req, res) => {
-    res.status(200).render('account', {
+    let user =  req.user;
+    res.status(200).render('account',
+     {user: user,
       title: 'About'
     });
 };
