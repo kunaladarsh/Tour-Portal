@@ -14,7 +14,7 @@ exports.getOverview = async (req, res) => {
         res.status(200).render('overview', {
             title: "Exciting tours for adventurous people",
             tour: {
-                data: (res1.data.data.tour.tours)
+                data: res1.data.data.tour.tours
             }
         });
     }
