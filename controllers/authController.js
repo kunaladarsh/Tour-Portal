@@ -187,7 +187,9 @@ exports.isLoggedIn = async (req, res, next) => {
         if (req.cookies.jwt) {
             // 1) verification access token
             decoded = await promisify(jwt.verify)(req.cookies.jwt, process.env.jwt_SECRET);
-        };
+        }else if(req.cookies.refreshJwt){
+            decoded = await promisify(jwt.verify)(req.cookies.refreshJwt, process.env.jwt_REFRESH_SECRET);  
+        }
 
         // 2) check if user still exits
         const currentUser = await User.findOne({ email: decoded.id });
@@ -202,6 +204,7 @@ exports.isLoggedIn = async (req, res, next) => {
 
         // There is logged in a user
         res.locals.user = currentUser;
+        console.log('put user data');
         return next();
 
     } catch (err) {
