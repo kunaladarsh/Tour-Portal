@@ -8,7 +8,7 @@ exports.getOverview = async (req, res) => {
         // console.log(req.user);
         const res1 = await axios({
             method: 'GET',
-            url: 'http://127.0.0.1:3000/api/v1/tours',
+            url: 'https://tour-portal.onrender.com/api/v1/tours',
         });
 
         res.status(200).render('overview', {
@@ -19,6 +19,7 @@ exports.getOverview = async (req, res) => {
         });
     }
     catch (err) {
+        console.log(err);
         res.status(400).json({
             "message": 'Not Found'
       })
