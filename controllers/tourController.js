@@ -3,7 +3,8 @@ const stringify = require('stringify');
 const Tour = require('./../models/tourModel');
 const User = require('./../models/userModel');
 const APIFeatures = require('./../utils/apiFeatures')
-const { json } = require('express');
+const { json } = require('express')
+const client = require('../redis');
 
 
 exports.aliasTopTours = (req, res, next) => {
@@ -16,12 +17,30 @@ exports.aliasTopTours = (req, res, next) => {
 // using APIFeatures
 exports.getAllTours = async (req, res) => {
   try {
+    let tours = await client.get('AllTours');
+    if (tours) {
+      console.log("redis data");
+      tours = JSON.parse(tours); // Convert from JSON string
+      return res.status(200).json({
+        status: 'success',
+        requestedAt: req.requestTime,
+        length: tours.length,
+        data: {
+          tour: { tours }
+        }
+      });
+    }
+
     const featuresresult = new APIFeatures(Tour.find(), req.query)
       .filters()
       .sort()
       .fieldsLimit()
       .paginations()
-    const tours = await featuresresult.query;
+
+    tours = await featuresresult.query;
+    await client.set('AllTours', JSON.stringify(tours), {
+      EX: 3600 * 24 // 3600sec - 1hr 
+  });
 
     // send response
     res.status(200).json({
@@ -34,16 +53,15 @@ exports.getAllTours = async (req, res) => {
     });
 
   } catch (err) {
-    console.log("we get a error" + err);
     res.status(404).json({
       status: "fail",
-      Message: "Not Found" + err
+      Message: "Not Found"
     });
   }
 };
 
 exports.getTour = async (req, res) => {
-   try {
+  try {
     const tour = await Tour.findById(req.params.id).populate('guides');
 
     res.status(200).json({
@@ -52,13 +70,13 @@ exports.getTour = async (req, res) => {
         tour
       }
     });
-   } catch (error) {
+  } catch (error) {
     console.log(error)
     res.status(404).json({
       status: 'fail',
       error
     });
-   }
+  }
 };
 
 

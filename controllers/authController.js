@@ -35,7 +35,8 @@ const createSendToken = (res, user, statuscode, message) => {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // Automatically set secure based on environment
     };
-
+     
+    // send througth cookies of Refresh-Token and Access-Token
     res.cookie('jwt', token, cookies);
     res.cookie('refreshJwt', refToken, cookies_refresh);
 
@@ -141,10 +142,9 @@ exports.protect = async (req, res, next) => {
         }
 
         // 2) verification token
-        // verify a token symmetric
         let decoded;
         if (token) {
-             //verification the refresh token (when token are present)
+             //verification the access token (when token are present)
             decoded = await promisify(jwt.verify)(token, process.env.jwt_SECRET);
         } else {
             //verification the refresh token 
@@ -162,13 +162,14 @@ exports.protect = async (req, res, next) => {
             return sendErrorMessage(res, 401, "user recently changed password! please login again");
         }
 
-        // send the access-token and new refresh-token
+        // send the new access-token and  refresh-token
         if(refToken){
             createSendToken(res, currentUser, 200, 'send access token');
         }
 
         // grant access to protected routes
         req.user = currentUser;
+        res.locals.user = currentUser;
 
     } catch (err) {
         console.log(err);
@@ -178,11 +179,13 @@ exports.protect = async (req, res, next) => {
     next();
 };
 
+
+// Only for rendered pages, no errors!
 exports.isLoggedIn = async (req, res, next) => {
     let decoded;
     try {
         if (req.cookies.jwt) {
-            // 1) verification token
+            // 1) verification access token
             decoded = await promisify(jwt.verify)(req.cookies.jwt, process.env.jwt_SECRET);
         };
 

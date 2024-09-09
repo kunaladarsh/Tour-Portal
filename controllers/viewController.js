@@ -1,28 +1,42 @@
 const Tour = require('../models/tourModel');
 const { format, parseISO } = require('date-fns');
+const axios = require('axios');
 
-exports.getOverview = async(req, res) => {
-    const data = await Tour.find();    
+exports.getOverview = async (req, res) => {
+    try {
+        // const data = await Tour.find();
+        // console.log(req.user);
+        const res1 = await axios({
+            method: 'GET',
+            url: 'http://127.0.0.1:3000/api/v1/tours',
+        });
 
-    res.status(200).render('overview', {
-        title: "Exciting tours for adventurous people",
-        tour: {
-            data: data
-        }
-    });
-};
+        res.status(200).render('overview', {
+            title: "Exciting tours for adventurous people",
+            tour: {
+                data: (res1.data.data.tour.tours)
+            }
+        });
+    }
+    catch (err) {
+        console.log(err);
+        res.status(400).json({
+            "message": 'Not Found' + err
+      })
+    }
+}
 
-exports.login = async(req, res) => {
+exports.login = async (req, res) => {
     res.status(200).render('login', {
         "message": "Login Screen Open"
     });
 };
 
 exports.getAccount = (req, res) => {
-    let user =  req.user;
+    // let user =  req.user;
     res.status(200).render('account',
-     {user: user,
-      title: 'About'
-    });
+        {  // user: user,
+            title: 'About'
+        });
 };
 
