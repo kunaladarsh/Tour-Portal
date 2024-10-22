@@ -1,6 +1,7 @@
 const path = require('path');
 const express = require('express');
 const morgan = require('morgan');
+const cors = require('cors')
 
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
@@ -17,6 +18,11 @@ const viewRouter = require('./routes/viewRoutes');
 
 // const { title } = require('process');
 const app = express();
+
+app.use(cors({
+  origin: 'https://another-domain.com',
+  credentials: true, // Allow cookies to be sent
+}));
 
 app.set('view engine', 'pug');
 app.set('views', path.join(__dirname, 'views'));
@@ -35,7 +41,7 @@ app.use(helmet(
 ));
 
 //Development logging
-if (process.env.NODE_ENV === 'development') {
+if (process.env.NODE_ENV === 'production') {
   app.use(morgan('dev'));
 }
 

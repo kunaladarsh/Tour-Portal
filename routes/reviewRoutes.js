@@ -10,6 +10,6 @@ router
 
   router
   .route('/view.review')
-  .post(authController.protect,  reviewController.getAllReview);
+  .post(authController.protect, authController.restrictTo('user'), reviewController.getAllReview);
 
 module.exports = router;

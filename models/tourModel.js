@@ -89,6 +89,19 @@ const tourSchema = new mongoose.Schema({
   ]
 });
 
+// Ensure virtual fields are included when converting documents to JSON
+tourSchema.set('toJSON', { virtuals: true });
+tourSchema.set('toObject', { virtuals: true });
+
+
+
+// virtual populated
+tourSchema.virtual('reviews', {
+  ref: 'Review',
+  foreignField: 'tour',
+  localField: '_id'
+});
+
 //populate of guides filled data
 tourSchema.pre(/^find/, function(next){
    this.populate({

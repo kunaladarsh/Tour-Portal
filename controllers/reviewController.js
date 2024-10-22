@@ -22,19 +22,24 @@ exports.createReview = async (req, res) => {
   };
 
   exports.getAllReview = async (req, res) => {
-    console.log(req.body.id);
     try {
-      console.log("Test-1")
-      const view_review = await review.find({tour: req.body.id});
-      console.log("Test-1")
-
+      const to = Date.now();
+      let view_review;
+      // if (req.body.id){
+      //    view_review = await review.find({tour: req.body.id});
+      // }else{
+      //   view_review = await review.find();
+      // }
+      const t1 = Date.now();
+      console.log(t1 - to);
       res.status(200).json({
         status: 'success',
+        time: t1 - to, 
         data: view_review
       });
     } catch (err) {
       res.status(400).json({
-        status: "fail",
+        status: "fail", 
         error: "Invalid Data Send"
       });
     }

@@ -4,20 +4,46 @@ const jwt = require('jsonwebtoken');
 const { promisify } = require('util');
 const { sendEmail } = require('./../utils/emails');
 const crypto = require('crypto');
+const client = require('../redis');
+
+const { UUIDV4 } = require('sequelize');
+const { Domain } = require('domain');
+const fs = require('fs');
+
+
 
 // create access JWT Token
 const signToken = id => {
+   
+    // create asymentic token 
+    // const privateKey = fs.readFileSync('../private.key', 'utf8');
+    // console.log(privateKey);
+    // return jwt.sign(payload, privateKey, { algorithm: 'RS256', expiresIn: '1h' });
+
+    //  // Verify the JWT
+    // const publicKey = fs.readFileSync('../public.key', 'utf8');
+    // jwt.verify(req.cookies.jwt, publicKey, (err, decoded) => {
+    //     if (err) {
+    //         console.error('Token verification failed:', err);
+    //     } else {
+    //         console.log('Decoded payload:', decoded);
+    //     }
+    // });
+
     return jwt.sign({ id: id }, process.env.jwt_SECRET, { expiresIn: '15m' });
+
+
 }
 // create refresh JWT Token
-const refreshToken = id => {
-    return jwt.sign({ id: id }, process.env.jwt_REFRESH_SECRET, { expiresIn: '7d' });
+const refreshToken = (id, sid) => {
+
+    return jwt.sign({ id: id, sid: sid }, process.env.jwt_REFRESH_SECRET, { expiresIn: '7d' });
 }
 
 // sending JWT Token to user
-const createSendToken = (res, user, statuscode, message) => {
+const createSendToken = (res, user, sid, statuscode, message) => {
     const token = signToken(user.email);
-    const refToken = refreshToken(user.email);
+    const refToken = refreshToken(user.email, sid);
     // JWT Access-Token
     const cookies = {
         expires: new Date(
@@ -35,7 +61,7 @@ const createSendToken = (res, user, statuscode, message) => {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // Automatically set secure based on environment
     };
-     
+
     // send througth cookies of Refresh-Token and Access-Token
     res.cookie('jwt', token, cookies);
     res.cookie('refreshJwt', refToken, cookies_refresh);
@@ -44,9 +70,9 @@ const createSendToken = (res, user, statuscode, message) => {
     user.password = undefined;
 
     // send data when login the user
-    if(message === "you are login successfully") {
+    if (message === "you are login successfully") {
         res.status(statuscode).json({
-            token, refToken,
+            token,
             status: 'Success',
             message: message,
             data: user
@@ -91,7 +117,16 @@ exports.login = async (req, res, next) => {
             return sendErrorMessage(res, 401, "Incorrect email or password");
         }
 
-        createSendToken(res, user_data, 200, 'you are login successfully');
+        // created session_id of every refreshToken
+        const uuid = crypto.randomUUID()
+        const sid = uuid.replace(/-/g, '');
+
+        // store sid in redis servers
+        // const result = await client.set(`sid.${email}`, sid, {
+        //     EX: 3600 * 24 * 7 // 3600sec - 1hr 
+        // });
+
+        createSendToken(res, user_data, sid, 200, 'you are login successfully');
 
     } catch (err) {
         console.log(err);
@@ -101,6 +136,14 @@ exports.login = async (req, res, next) => {
 
 exports.logOut = async (req, res, next) => {
     try {
+        // delete the refresh-sessionid in redis
+        if (req.cookies.refreshJwt) {
+            //verification the refresh token 
+            decoded = await promisify(jwt.verify)(req.cookies.refreshJwt, process.env.jwt_REFRESH_SECRET);
+
+            // await client.del(`sid.${decoded.id}`);
+        }
+
         // send token to client at token-validation-time is 4 sec
         const cookies = {
             expires: new Date(
@@ -113,20 +156,31 @@ exports.logOut = async (req, res, next) => {
         res.cookie('jwt', 'logout', cookies);
         res.cookie('refreshJwt', 'logout', cookies);
 
+
         res.status(200).json({
             status: 'Success',
-            message: 'your are successfully logout'
+            message: 'Successfully logged out.'
         });
 
     } catch (err) {
-        console.log(err);
-        return sendErrorMessage(res, 404, "Logout Unsuccessfully");
+        // console.log(err);
+        return sendErrorMessage(res, 400, "Logout failed.");
     }
 };
 
 exports.protect = async (req, res, next) => {
     console.log("check protect middleware");
     let token, refToken;
+
+    // const publicKey = fs.readFileSync('../public.key', 'utf8');
+    // jwt.verify(req.cookies.jwt, publicKey, (err, decoded) => {
+    //     if (err) {
+    //         console.error('Token verification failed:', err);
+    //     } else {
+    //         console.log('Decoded payload:', decoded);
+    //     }
+    // });
+    
     try {
         // 1) getting token and check of it's there
         if (req.headers.authorization && req.headers.authorization.includes('Bearer')) {
@@ -138,38 +192,46 @@ exports.protect = async (req, res, next) => {
         }
 
         if (!token & !refToken) {
-            return sendErrorMessage(res, 400, "you are not login please login to access..");
+            return sendErrorMessage(res, 400, "you are not login. please login");
         }
 
         // 2) verification token
         let decoded;
         if (token) {
-             //verification the access token (when token are present)
+            //verification the access token (when token are present)
             decoded = await promisify(jwt.verify)(token, process.env.jwt_SECRET);
         } else {
             //verification the refresh token 
             decoded = await promisify(jwt.verify)(refToken, process.env.jwt_REFRESH_SECRET);
+
+            // check the refresh Token are vaild (using sessionid store in redis) 
+            let refSessionid;
+            // const refSessionid = await client.get(`sid.${decoded.id}`);
+
+            if (!refSessionid || refSessionid !== decoded.sid) {
+                return sendErrorMessage(res, 401, "Your session has expired. Please log in again.");
+            }
         }
 
         // 3) check if user still exits
         const currentUser = await User.findOne({ email: decoded.id });
         if (!currentUser) {
-            return sendErrorMessage(res, 401, "The user belonging to this token does no longer exits");
+            return sendErrorMessage(res, 401, "Your session has expired. Please log in again.");
         }
 
-        // 4)check if user changed password after the jwt was issused
+        // 4) check if user changed password after the jwt was issused
         if (await currentUser.changedPasswordAfter(decoded.iat)) {
             return sendErrorMessage(res, 401, "user recently changed password! please login again");
         }
 
-        // send the new access-token and  refresh-token
-        if(refToken){
+        // send the new access-token and refresh-token
+        if (refToken) {
             createSendToken(res, currentUser, 200, 'send access token');
         }
 
         // grant access to protected routes
         req.user = currentUser;
-        res.locals.user = currentUser;
+        // res.locals.user = currentUser;
 
     } catch (err) {
         console.log(err);
@@ -187,8 +249,13 @@ exports.isLoggedIn = async (req, res, next) => {
         if (req.cookies.jwt) {
             // 1) verification access token
             decoded = await promisify(jwt.verify)(req.cookies.jwt, process.env.jwt_SECRET);
-        }else if(req.cookies.refreshJwt){
-            decoded = await promisify(jwt.verify)(req.cookies.refreshJwt, process.env.jwt_REFRESH_SECRET);  
+        }
+        else if (req.cookies.refreshJwt) {
+            decoded = await promisify(jwt.verify)(req.cookies.refreshJwt, process.env.jwt_REFRESH_SECRET);
+            const refSessionid = await client.get(`sid.${decoded.id}`);
+            if (!refSessionid || refSessionid !== decoded.sid) {
+                return next();
+            }
         }
 
         // 2) check if user still exits
@@ -204,7 +271,6 @@ exports.isLoggedIn = async (req, res, next) => {
 
         // There is logged in a user
         res.locals.user = currentUser;
-        console.log('put user data');
         return next();
 
     } catch (err) {
@@ -332,3 +398,35 @@ exports.updatePassword = async (req, res, next) => {
     }
 };
 
+
+const funSetData = async()=>{
+        const email = 'aks@gmail.com';
+        const sid = 7020022;
+        //   store sid in redis servers
+        // await client.set(`sid.${email}`, sid, {
+        //     EX: 3600 * 24 * 7 // 3600sec - 1hr 
+        // });
+        console.log("set Data");
+        const t1 = Date.now();
+        console.log(t1);
+        for (let i = 545; i<= 100550; i++) {
+            const userDetails = { username: `sid:5000${i}`, role: 'student', semsester: '5', phone: `${i+ 9282928280}` };
+            // Set user data in Redis using the username as the key
+            await client.set(`Student:5000${i}`, JSON.stringify(userDetails), {
+                EX: 30000  
+            });
+
+            // get Data
+            // await client.get(`Student:5000${i}`);
+
+            if(i === 10550){
+                console.log(Date.now());
+            }
+           
+        };
+
+        const t2 = Date.now();
+        console.log(t2);
+
+};
+funSetData();

@@ -4,7 +4,7 @@ const Tour = require('./../models/tourModel');
 const User = require('./../models/userModel');
 const APIFeatures = require('./../utils/apiFeatures')
 const { json } = require('express')
-const client = require('../redis');
+// const client = require('../redis');
 
 
 exports.aliasTopTours = (req, res, next) => {
@@ -17,30 +17,32 @@ exports.aliasTopTours = (req, res, next) => {
 // using APIFeatures
 exports.getAllTours = async (req, res) => {
   try {
-    let tours = await client.get('AllTours');
-    if (tours) {
-      console.log("redis data");
-      tours = JSON.parse(tours); // Convert from JSON string
-      return res.status(200).json({
-        status: 'success',
-        requestedAt: req.requestTime,
-        length: tours.length,
-        data: {
-          tour: { tours }
-        }
-      });
-    }
-
-    const featuresresult = new APIFeatures(Tour.find(), req.query)
+    let tours;
+    // let tours = await client.get('AllTours');
+    // if (tours) {
+    //   // const r = await client.del('AllTours');
+    //   console.log("redis data");
+    //   tours = JSON.parse(tours); // Convert from JSON string
+    //   return res.status(200).json({
+    //     status: 'success',
+    //     requestedAt: req.requestTime,
+    //     length: tours.length,
+    //     data: {
+    //       tour: { tours }
+    //     }
+    //   });
+    // }
+ 
+    const featuresresult = new APIFeatures(Tour.find().limit(6), req.query)
       .filters()
       .sort()
       .fieldsLimit()
       .paginations()
 
     tours = await featuresresult.query;
-    await client.set('AllTours', JSON.stringify(tours), {
-      EX: 3600 * 24 // 3600sec - 1hr 
-  });
+  //   await client.set('AllTours', JSON.stringify(tours), {
+  //     EX: 3600 * 24 // 3600sec - 1hr 
+  // });
 
     // send response
     res.status(200).json({
@@ -49,10 +51,11 @@ exports.getAllTours = async (req, res) => {
       length: tours.length,
       data: {
         tour: { tours }
-      }
+      };
     });
 
   } catch (err) {
+    console.log(err);
     res.status(404).json({
       status: "fail",
       Message: "Not Found"
@@ -62,8 +65,25 @@ exports.getAllTours = async (req, res) => {
 
 exports.getTour = async (req, res) => {
   try {
-    const tour = await Tour.findById(req.params.id).populate('guides');
+    // let tour = await client.get(`tour.${req.params.id}`);
+    // if (tour) {
+    //   console.log("redis Tour data");
+    //   tour = JSON.parse(tour); 
+    //   return res.status(200).json({
+    //     status: 'success',
+    //     data: {
+    //       tour: { tour }
+    //     }
+    //   });
+    // }
 
+    // data are not present redis, insert the data in redis
+    let tour = await Tour.findById(req.params.id).populate('reviews');
+    // await client.set(`tour.${req.params.id}`, JSON.stringify(tour), {
+    //   EX: 3600 * 1 // 3600sec - 1hr 
+    //  });
+
+ 
     res.status(200).json({
       status: 'success',
       data: {

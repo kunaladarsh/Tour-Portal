@@ -82,9 +82,12 @@ const login = async (email, password) => {
       window.setTimeout(() => {
         location.assign('/');
       }, 500);
+    } else if(res.data.status === 'Fail'){
+      showAlert('error', `Incorrect Email or Password`);
+
     }
   } catch (error) {
-    showAlert('error', `ohh! ${error.response.data.message}🥲`);
+    showAlert('error', `Oops! Something went wrong. Please try again later.`);
   }
   document.querySelector('.btn--green').textContent = 'Login';
 };

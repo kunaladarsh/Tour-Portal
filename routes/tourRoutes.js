@@ -5,7 +5,7 @@ const authController = require('./../controllers/authController')
 const router = express.Router();
 
 // router.param('id', tourController.checkID);  // jsons data used (this time to check)
- 
+
 router
   .route('/top-5-cheap')
   .get(tourController.aliasTopTours, tourController.getAllTours)
@@ -20,7 +20,7 @@ router
 
 router
   .route('/')
-  .get(tourController.getAllTours)
+  .get(authController.isLoggedIn, tourController.getAllTours)
   .post(tourController.createTour);
 
 router
