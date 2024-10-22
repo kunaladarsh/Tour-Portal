@@ -33,7 +33,7 @@ Welcome to the Tour Portal API! This project provides a RESTful API for managing
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/tour-portal.git
+   git clone https://github.com/kunaladarsh/tour-portal.git
    cd tour-portal
 
 2. Install the dependencies:
